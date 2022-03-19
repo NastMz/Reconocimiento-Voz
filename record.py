@@ -3,7 +3,7 @@ import pyaudio
 import wave
 
 commands = ["arriba", "abajo", "derecha", "izquierda"]
-n = 10  # número de grabaciones por palabra
+n = 25  # número de grabaciones por palabra
 
 # DEFINIMOS PARÁMETROS
 FORMAT = pyaudio.paInt16  # el formato de los samples
@@ -16,7 +16,7 @@ for i in range(0, 4):
     print("Pronuncia la palabra " + commands[i].upper() + " cuando veas el mensaje \"grabando'" + commands[
         i].upper() + "'...\"")
     input("Presiona enter para empezar...")
-    for j in range(101, n + 101):
+    for j in range(1, n + 1):
         file = "records/" + commands[i] + str(j) + ".wav"  # nombre que tendrá el archivo de sonido
         # INICIAMOS "pyaudio"
         audio = pyaudio.PyAudio()

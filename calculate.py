@@ -15,7 +15,7 @@ def calculate_fft_record(audio):
     return fft
 
 
-# FUNCIÓN PARA DIVIDIR EL VECTOR DE LA TRANSFORMADA RÁPIDA DE FOURIER EN 2 PARTES IGUALES
+# FUNCIÓN PARA DIVIDIR EL VECTOR DE LA TRANSFORMADA RÁPIDA DE FOURIER EN N PARTES IGUALES
 def split(array, parts):
     while len(array) % parts != 0:
         array = np.append(array, 0)

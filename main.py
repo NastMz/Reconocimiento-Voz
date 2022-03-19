@@ -8,7 +8,7 @@ import pyaudio
 import calculate as calc
 import command as cmd
 
-nparts = 600
+nparts = 10  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
 
 # DEFINIMOS PARÁMETROS
 FORMAT = pyaudio.paInt16  # el formato de los samples
@@ -16,25 +16,11 @@ CHANNELS = 1  # número de canales
 RATE = 44200  # 44200 frames por segundo
 CHUNK = 1024  # unidades de memoria menores que se almacenará durante la transmisión de datos
 
+# -------------------------------- IGNORAR ---------------------------------------
 # audio = pyaudio.PyAudio()
-#
 # stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, output=True, frames_per_buffer=CHUNK)
 
 while True:
-    # print("Empieza a hablar")
-    #
-    # data = stream.read(CHUNK)
-    #
-    # frame = np.frombuffer(np.array(data), dtype=np.int16)
-    #
-    # fft = calc.calculate_fft(frame)
-    # parts = calc.split(fft, nparts)
-    #
-    # energy_sequence = []
-    # for k in range(0, nparts):
-    #     energy_sequence.append(calc.calculate_energy(parts[k]))
-    #
-    # print(cmd.find_command(energy_sequence))
 
     audio = pyaudio.PyAudio()
 
@@ -64,15 +50,32 @@ while True:
 
     ffts = calc.calculate_fft_record("grabacion.wav")  # se calcula la transformada de fourier de la grabación
 
-    parts = calc.split(ffts, nparts)
+    parts = calc.split(ffts, nparts)  # se divide la grabacion
 
     energy_sequence = []
     for k in range(0, nparts):
         energy_sequence.append(
-            calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de la parte uno del vector
-        # de la transformada de fourier de la grabación
+            calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de cada parte del vector
 
-    command = cmd.find_command(energy_sequence)
+    command = cmd.find_command(energy_sequence)  # se busca el posible comando en base a la energia calculada
     print(command)
 
-    os.remove("grabacion.wav")
+    os.remove("grabacion.wav") # se elimina el archivo creado para volver a iniciar el proceso
+
+    # -------------------------------- IGNORAR ---------------------------------------
+    # prueba de captar la voz en tiempo real para no usar grabaciones
+    #
+    # print("Empieza a hablar")
+    #
+    # data = stream.read(CHUNK)
+    #
+    # frame = np.frombuffer(np.array(data), dtype=np.int16)
+    #
+    # fft = calc.calculate_fft(frame)
+    # parts = calc.split(fft, nparts)
+    #
+    # energy_sequence = []
+    # for k in range(0, nparts):
+    #     energy_sequence.append(calc.calculate_energy(parts[k]))
+    #
+    # print(cmd.find_command(energy_sequence))
