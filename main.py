@@ -5,8 +5,8 @@ import pyaudio
 import calculate as calc
 import command as cmd
 
-nparts = 100  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
-e_range = [11000000000000,
+nparts = 150  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
+e_range = [14000000000000,
            48000000000000]  # rango de energias para buscar un comando, si no esta en ese rango se ignora la grabacion
 # DEFINIMOS PARÁMETROS
 FORMAT = pyaudio.paInt16  # el formato de los samples
