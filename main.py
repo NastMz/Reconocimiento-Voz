@@ -13,6 +13,7 @@ FORMAT = pyaudio.paInt16  # el formato de los samples
 CHANNELS = 1  # número de canales
 RATE = 44200  # 44200 frames por segundo
 CHUNK = 1024  # unidades de memoria menores que se almacenará durante la transmisión de datos
+duration = 2  # duración en segundos de nuestra grabación
 
 # -------------------------------- IGNORAR ---------------------------------------
 # audio = pyaudio.PyAudio()
@@ -29,7 +30,7 @@ while True:
 
     input("Presiona enter para hablar...")
     print("escuchando...")
-    for k in range(0, int(RATE / CHUNK)):
+    for k in range(0, int(RATE / CHUNK * duration)):
         data = stream.read(CHUNK)
         frames.append(data)
     print("fin escucha")
