@@ -147,33 +147,33 @@ def find_command(energy_seq):
 # Esto sirve para comprobar que tan exacto es el algoritmo despues de entrenarlo,
 # usando las grabaciones como si fuera alguien hablando en tiempo real
 #
-for i in range(0, len(commands)):
-    print("_______________" + commands[i].upper() + "_______________")
-    for j in range(1, n + 1):
-        file = folder + commands[i] + str(j) + ".wav"
-        ffts = calc.calculate_fft_record(file)  # se calcula la transformada de fourier de la grabación
-
-        parts = calc.split(ffts, nparts)
-
-        energy_sequence = []
-        for k in range(0, nparts):
-            energy_sequence.append(calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de la parte uno
-            # del vector
-            # de la transformada de fourier de la grabación
-
-        command = find_command(energy_sequence)
-
-        if command == "arriba":
-            a = a + 1
-        elif command == "abajo":
-            b = b + 1
-        elif command == "derecha":
-            c = c + 1
-        elif command == "izquierda":
-            d = d + 1
-
-    print("arriba: " + str(a))
-    print("abajo: " + str(b))
-    print("derecha: " + str(c))
-    print("izquierda: " + str(d))
-    a = b = c = d = 0
+# for i in range(0, len(commands)):
+#     print("_______________" + commands[i].upper() + "_______________")
+#     for j in range(1, n + 1):
+#         file = folder + commands[i] + str(j) + ".wav"
+#         ffts = calc.calculate_fft_record(file)  # se calcula la transformada de fourier de la grabación
+#
+#         parts = calc.split(ffts, nparts)
+#
+#         energy_sequence = []
+#         for k in range(0, nparts):
+#             energy_sequence.append(calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de la parte uno
+#             # del vector
+#             # de la transformada de fourier de la grabación
+#
+#         command = find_command(energy_sequence)
+#
+#         if command == "arriba":
+#             a = a + 1
+#         elif command == "abajo":
+#             b = b + 1
+#         elif command == "derecha":
+#             c = c + 1
+#         elif command == "izquierda":
+#             d = d + 1
+#
+#     print("arriba: " + str(a))
+#     print("abajo: " + str(b))
+#     print("derecha: " + str(c))
+#     print("izquierda: " + str(d))
+#     a = b = c = d = 0
