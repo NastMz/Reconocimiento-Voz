@@ -27,6 +27,7 @@ while True:
     # INICIAMOS GRABACIÓN
     frames = []
 
+    input("Presiona enter para hablar...")
     print("escuchando...")
     for k in range(0, int(RATE / CHUNK)):
         data = stream.read(CHUNK)
@@ -55,7 +56,7 @@ while True:
         energy_sequence.append(
             calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de cada parte del vector
 
-    if energy_sequence[0] > e_range[0] and energy_sequence[nparts - 1] < e_range[1]:
+    if energy_sequence[0] > e_range[0] and energy_sequence[nparts - 10] < e_range[1]:
         command = cmd.find_command(energy_sequence)  # se busca el posible comando en base a la energia calculada
         print("El comando probablemente es: " + command)
 
