@@ -1,15 +1,13 @@
 import os
-import struct
 import wave
-
-import numpy as np
 import pyaudio
 
 import calculate as calc
 import command as cmd
 
-nparts = 10  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
-
+nparts = 100  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
+e_range = [11000000000000,
+           48000000000000]  # rango de energias para buscar un comando, si no esta en ese rango se ignora la grabacion
 # DEFINIMOS PARÁMETROS
 FORMAT = pyaudio.paInt16  # el formato de los samples
 CHANNELS = 1  # número de canales
@@ -30,7 +28,7 @@ while True:
     frames = []
 
     print("escuchando...")
-    for k in range(0, int(RATE / CHUNK * 2)):
+    for k in range(0, int(RATE / CHUNK)):
         data = stream.read(CHUNK)
         frames.append(data)
     print("fin escucha")
@@ -57,10 +55,11 @@ while True:
         energy_sequence.append(
             calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de cada parte del vector
 
-    command = cmd.find_command(energy_sequence)  # se busca el posible comando en base a la energia calculada
-    print(command)
+    if energy_sequence[0] > e_range[0] and energy_sequence[nparts - 1] < e_range[1]:
+        command = cmd.find_command(energy_sequence)  # se busca el posible comando en base a la energia calculada
+        print("El comando probablemente es: " + command)
 
-    os.remove("grabacion.wav") # se elimina el archivo creado para volver a iniciar el proceso
+    os.remove("grabacion.wav")  # se elimina el archivo creado para volver a iniciar el proceso
 
     # -------------------------------- IGNORAR ---------------------------------------
     # prueba de captar la voz en tiempo real para no usar grabaciones

@@ -1,8 +1,8 @@
 import numpy as np
 import calculate as calc
 
-n = 100  # número de grabaciones por palabra
-nparts = 10  # numero de partes en las que se divide el vector
+n = 125  # número de grabaciones por palabra
+nparts = 100  # numero de partes en las que se divide el vector
 folder = "records/"  # carpeta en la que se guardan las grabaciones
 commands = ["arriba", "abajo", "derecha", "izquierda"]
 
