@@ -10,7 +10,7 @@ FORMAT = pyaudio.paInt16  # el formato de los samples
 CHANNELS = 1  # número de canales
 RATE = 44200  # 44200 frames por segundo
 CHUNK = 1024  # unidades de memoria menores que se almacenará durante la transmisión de datos
-duration = 2  # duración en segundos de nuestra grabación
+duration = 1  # duración en segundos de nuestra grabación
 
 for i in range(0, 4):
     print("Pronuncia la palabra " + commands[i].upper() + " cuando veas el mensaje \"grabando'" + commands[
