@@ -1,9 +1,9 @@
 import numpy as np
 import calculate as calc
 
-n = 125  # número de grabaciones por palabra
-nparts = 100  # numero de partes en las que se divide el vector
-folder = "records/"  # carpeta en la que se guardan las grabaciones
+n = 150  # número de grabaciones por palabra
+nparts = 100  # número de partes en las que se divide el vector
+folder = "train_data/"  # carpeta en la que se guardan las grabaciones
 commands = ["arriba", "abajo", "derecha", "izquierda"]
 
 
@@ -15,7 +15,7 @@ def train(records):
 
     # CICLO PARA REALIZAR EL PROCESO CON CADA UNA DE LAS GRABACIONES
     for j in range(0, len(records)):
-        fft = calc.calculate_fft_record(records[j]) # se calcula la transformada de fourier de la grabación
+        fft = calc.calculate_fft_record(records[j])  # se calcula la transformada de fourier de la grabación
         ffts.append(fft)  # se guarda la transformada en el vector
 
         # se divide el vector de la transformada de fourier de la grabación en n partes
@@ -54,16 +54,21 @@ for i in range(1, n + 1):
     records_left.append(folder + commands[3] + str(i) + ".wav")
 
 # Con el listado de grabaciones se calcula la energia de cada comando
+energy_up = train(records_up)
+energy_down = train(records_down)
+energy_left = train(records_left)
+energy_right = train(records_right)
+
 print("-----------------------------------------------------------------")
 print("La secuencia de umbrales de energía para la palabra ARRIBA es: ")
-print(train(records_up))
+print(energy_up)
 print("-----------------------------------------------------------------")
 print("La secuencia de umbrales de energía para la palabra ABAJO es: ")
-print(train(records_down))
+print(energy_down)
 print("-----------------------------------------------------------------")
 print("La secuencia de umbrales de energía para la palabra DERECHA es: ")
-print(train(records_right))
+print(energy_right)
 print("-----------------------------------------------------------------")
 print("La secuencia de umbrales de energía para la palabra IZQUIERDA es: ")
-print(train(records_left))
+print(energy_left)
 print("-----------------------------------------------------------------")

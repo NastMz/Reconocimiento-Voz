@@ -1,13 +1,13 @@
 import os
 import wave
 import pyaudio
+from scipy.io import wavfile
 
 import calculate as calc
 import command as cmd
 
 nparts = 100  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
-e_range = [10800000000000,
-           48000000000000]  # rango de energias para buscar un comando, si no esta en ese rango se ignora la grabacion
+e_range = [-1000, 1000]
 # DEFINIMOS PARÁMETROS
 FORMAT = pyaudio.paInt16  # el formato de los samples
 CHANNELS = 1  # número de canales
@@ -48,20 +48,21 @@ while True:
     waveFile.writeframes(b''.join(frames))
     waveFile.close()
 
-    ffts = calc.calculate_fft_record("grabacion.wav")  # se calcula la transformada de fourier de la grabación
+    fs, data = wavfile.read("grabacion.wav")
+    if max(data) <= 5000:
+        ffts = calc.calculate_fft_record("grabacion.wav")  # se calcula la transformada de fourier de la grabación
 
-    parts = calc.split(ffts, nparts)  # se divide la grabacion
+        parts = calc.split(ffts, nparts)  # se divide la grabacion
 
-    energy_sequence = []
-    for k in range(0, nparts):
-        energy_sequence.append(
-            calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de cada parte del vector
+        energy_sequence = []
+        for k in range(0, nparts):
+            energy_sequence.append(
+                calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de cada parte del vector
 
-    if energy_sequence[0] > e_range[0] and energy_sequence[nparts - 10] < e_range[1]:
         command = cmd.find_command(energy_sequence)  # se busca el posible comando en base a la energia calculada
         print("El comando probablemente es: " + command)
 
-    os.remove("grabacion.wav")  # se elimina el archivo creado para volver a iniciar el proceso
+        os.remove("grabacion.wav")  # se elimina el archivo creado para volver a iniciar el proceso
 
     # -------------------------------- IGNORAR ---------------------------------------
     # prueba de captar la voz en tiempo real para no usar grabaciones
