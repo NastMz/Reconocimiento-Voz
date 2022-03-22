@@ -49,7 +49,7 @@ while True:
     waveFile.close()
 
     fs, data = wavfile.read("grabacion.wav")
-    if max(data) <= 5000:
+    if max(data) >= 5000:
         ffts = calc.calculate_fft_record("grabacion.wav")  # se calcula la transformada de fourier de la grabación
 
         parts = calc.split(ffts, nparts)  # se divide la grabacion
