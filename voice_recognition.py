@@ -7,7 +7,7 @@ import calculate as calc
 import command as cmd
 
 nparts = 100  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
-e_range = [-1000, 1000]
+
 # DEFINIMOS PARÁMETROS
 FORMAT = pyaudio.paInt16  # el formato de los samples
 CHANNELS = 1  # número de canales
@@ -15,12 +15,14 @@ RATE = 44200  # 44200 frames por segundo
 CHUNK = 1024  # unidades de memoria menores que se almacenará durante la transmisión de datos
 duration = 2  # duración en segundos de nuestra grabación
 
+
 # -------------------------------- IGNORAR ---------------------------------------
 # audio = pyaudio.PyAudio()
 # stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, output=True, frames_per_buffer=CHUNK)
 
-while True:
+# while True:
 
+def voice_recognition():
     audio = pyaudio.PyAudio()
 
     stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
@@ -28,7 +30,7 @@ while True:
     # INICIAMOS GRABACIÓN
     frames = []
 
-    input("Presiona enter para hablar...")
+    # input("Presiona enter para hablar...")
     print("escuchando...")
     for k in range(0, int(RATE / CHUNK * duration)):
         data = stream.read(CHUNK)
@@ -49,7 +51,7 @@ while True:
     waveFile.close()
 
     fs, data = wavfile.read("grabacion.wav")
-    if max(data) >= 5000:
+    if max(data) >= 10000:
         ffts = calc.calculate_fft_record("grabacion.wav")  # se calcula la transformada de fourier de la grabación
 
         parts = calc.split(ffts, nparts)  # se divide la grabacion
@@ -60,9 +62,10 @@ while True:
                 calc.calculate_energy(parts[k]))  # se calcula y guarda la energía de cada parte del vector
 
         command = cmd.find_command(energy_sequence)  # se busca el posible comando en base a la energia calculada
-        print("El comando probablemente es: " + command)
 
         os.remove("grabacion.wav")  # se elimina el archivo creado para volver a iniciar el proceso
+
+        return command
 
     # -------------------------------- IGNORAR ---------------------------------------
     # prueba de captar la voz en tiempo real para no usar grabaciones

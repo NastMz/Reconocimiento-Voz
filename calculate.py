@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.io import wavfile
-import denoise
 
 
 # FUNCIÓN PARA CALCULAR LA TRANSFORMADA RÁPIDA DE FOURIER DE UN FRAME
@@ -14,15 +13,15 @@ def calculate_fft_record(audio):
     fs, data = wavfile.read(audio)
     split_record = []
     index1 = 0
-    while 2500 > data[index1] > -2500:
+    while 2000 > data[index1] > -2000:
         index1 += 1
     part = data[index1:]
     index2 = len(part) - 1
-    while 2500 > part[index2] > -2500:
+    while 2000 > part[index2] > -2000:
         index2 -= 1
     split_record = part[:index2]
     fft = np.fft.fft(split_record)
-    fft = np.fft.fft(data)
+    # fft = np.fft.fft(data)
     return fft
 
 
