@@ -71,14 +71,14 @@ def main():
 
         if snake_pos[0] >= 500 or snake_pos[0] <= 0:
             print(f"Game Over! Score: {score})")
-            run = False
+            snake_pos = [100, 50]
         if snake_pos[1] >= 500 or snake_pos[1] <= 0:
             print(f"Game Over! Score: {score})")
-            run = False
+            snake_pos = [100, 50]
 
         if snake_pos in snake_body[1:]:
             print(f"Game Over! Score: {score})")
-            run = False
+            snake_pos = [100, 50]
 
         pygame.display.flip()
         fps.tick(8)

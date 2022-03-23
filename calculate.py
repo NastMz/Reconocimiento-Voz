@@ -1,5 +1,7 @@
 import numpy as np
+import scipy.fft
 from scipy.io import wavfile
+from scipy.fft import rfft, rfftfreq
 
 
 # FUNCIÓN PARA CALCULAR LA TRANSFORMADA RÁPIDA DE FOURIER DE UN FRAME
@@ -20,7 +22,7 @@ def calculate_fft_record(audio):
     while 2000 > part[index2] > -2000:
         index2 -= 1
     split_record = part[:index2]
-    fft = np.fft.fft(split_record)
+    fft = scipy.fft.rfft(split_record)
     # fft = np.fft.fft(data)
     return fft
 
@@ -37,6 +39,6 @@ def calculate_energy(array):
     suma = 0
     n = len(array)
     for i in range(0, n):
-        suma = pow(abs(array[i]), 2) + suma
+        suma = pow(np.abs(array[i]), 2) + suma
     energy = (1 / n) * suma
     return energy
