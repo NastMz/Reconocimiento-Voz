@@ -43,12 +43,12 @@ def voice_recognition():
 
     # CREAMOS/GUARDAMOS EL ARCHIVO DE AUDIO
 
-    waveFile = wave.open("grabacion.wav", 'wb')
-    waveFile.setnchannels(CHANNELS)
-    waveFile.setsampwidth(audio.get_sample_size(FORMAT))
-    waveFile.setframerate(RATE)
-    waveFile.writeframes(b''.join(frames))
-    waveFile.close()
+    wave_file = wave.open("grabacion.wav", 'wb')
+    wave_file.setnchannels(CHANNELS)
+    wave_file.setsampwidth(audio.get_sample_size(FORMAT))
+    wave_file.setframerate(RATE)
+    wave_file.writeframes(b''.join(frames))
+    wave_file.close()
 
     fs, data = wavfile.read("grabacion.wav")
     if max(data) >= 10000:
@@ -66,21 +66,3 @@ def voice_recognition():
         os.remove("grabacion.wav")  # se elimina el archivo creado para volver a iniciar el proceso
 
         return command
-
-    # -------------------------------- IGNORAR ---------------------------------------
-    # prueba de captar la voz en tiempo real para no usar grabaciones
-    #
-    # print("Empieza a hablar")
-    #
-    # data = stream.read(CHUNK)
-    #
-    # frame = np.frombuffer(np.array(data), dtype=np.int16)
-    #
-    # fft = calc.calculate_fft(frame)
-    # parts = calc.split(fft, nparts)
-    #
-    # energy_sequence = []
-    # for k in range(0, nparts):
-    #     energy_sequence.append(calc.calculate_energy(parts[k]))
-    #
-    # print(cmd.find_command(energy_sequence))

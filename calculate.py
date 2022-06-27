@@ -4,16 +4,9 @@ from scipy.io import wavfile
 from scipy.fft import rfft, rfftfreq
 
 
-# FUNCIÓN PARA CALCULAR LA TRANSFORMADA RÁPIDA DE FOURIER DE UN FRAME
-def calculate_fft(data):
-    fft = np.fft.fft(data)
-    return fft
-
-
 # FUNCIÓN PARA CALCULAR LA TRANSFORMADA RÁPIDA DE FOURIER DE UNA GRABACIÓN
 def calculate_fft_record(audio):
     fs, data = wavfile.read(audio)
-    split_record = []
     index1 = 0
     while 2000 > data[index1] > -2000:
         index1 += 1
@@ -23,7 +16,6 @@ def calculate_fft_record(audio):
         index2 -= 1
     split_record = part[:index2]
     fft = scipy.fft.rfft(split_record)
-    # fft = np.fft.fft(data)
     return fft
 
 
