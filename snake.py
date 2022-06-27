@@ -1,5 +1,9 @@
-import pygame, sys, time, random
+import pygame
+import random
+import sys
+import time
 from pygame.locals import *
+
 import voice_recognition as vr
 
 pygame.init()

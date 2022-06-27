@@ -3,7 +3,7 @@ import calculate as calc
 
 folder = "train_data/"
 commands = ["UP", "DOWN", "RIGHT", "LEFT"]
-nparts = 100  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
+num_parts = 100  # numero de partes en las que se dividieron las grabaciones en el entrenamiento
 
 # Vectores de secuencia de energia promedio de cada comando
 arriba = np.array(
@@ -110,7 +110,7 @@ izquierda = np.array(
 # # differences = [[1,5,9,4],[2,6,1,6],[3,7,2,7],[4,8,3,7]]
 # # Es decir que crea un vector que tiene dentro vectores con las diferencias de cada parte
 # # independientemente del comando
-# for i3 in range(0, nparts):
+# for i3 in range(0, num_parts):
 #     difference = [up[i3], down[i3], right[i3], left[i3]]
 #     differences.append(difference)
 #

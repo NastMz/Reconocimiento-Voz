@@ -1,8 +1,8 @@
 import numpy as np
 import calculate as calc
 
-n = 150  # número de grabaciones por palabra
-nparts = 100  # número de partes en las que se divide el vector
+num_records = 150  # número de grabaciones por palabra
+num_parts = 100  # número de partes en las que se divide el vector
 folder = "train_data/"  # carpeta en la que se guardan las grabaciones
 commands = ["arriba", "abajo", "derecha", "izquierda"]
 
@@ -19,12 +19,12 @@ def train(records):
         ffts.append(fft)  # se guarda la transformada en el vector
 
         # se divide el vector de la transformada de fourier de la grabación en n partes
-        parts = calc.split(ffts[j], nparts)
+        parts = calc.split(ffts[j], num_parts)
 
         # CALCULAR LAS ENERGÍAS DE LAS PARTES DE LA TRANSFORMADA DE FOURIER
         # Se calcula la transformada de cada parte una de las partes para cada grabacion
         energy_part = []
-        for k in range(0, nparts):
+        for k in range(0, num_parts):
             energy_part.append(calc.calculate_energy(parts[k]))
         energies.append(energy_part)
 
@@ -47,7 +47,7 @@ records_left = []
 records_right = []
 
 # Se buscan todas las grabaciones que existen y se guarda el listado en un vector
-for i in range(1, n + 1):
+for i in range(1, num_records + 1):
     records_up.append(folder + commands[0] + str(i) + ".wav")
     records_down.append(folder + commands[1] + str(i) + ".wav")
     records_right.append(folder + commands[2] + str(i) + ".wav")
