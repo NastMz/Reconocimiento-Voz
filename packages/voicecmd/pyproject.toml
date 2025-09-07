@@ -22,3 +22,4 @@ where = ["src"]
 
 [project.scripts]
 voicecmd = "voicecmd.cli:app"
+voicecmd-gui = "voicecmd.gui:main"
