@@ -42,6 +42,7 @@ Dependencies:
 
 from __future__ import annotations
 import sqlite3
+import threading
 from pathlib import Path
 from datetime import datetime, timezone
 import numpy as np
@@ -160,11 +161,15 @@ class ProfileRepository:
             >>> repo = ProfileRepository(db_path)
         """
         self.db_path = db_path
+        # Thread lock for database operations
+        self._lock = threading.Lock()
+
         # Create parent directories if they don't exist
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Connect to database and configure
-        self._conn = sqlite3.connect(str(db_path))
+        # check_same_thread=False allows usage from multiple threads
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA_SQL)
         self._conn.commit()
@@ -193,7 +198,8 @@ class ProfileRepository:
             After calling close(), the repository instance should not be used
             for further operations as it will raise database errors.
         """
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
     # Commands
     def upsert_command(self, name: str) -> int:
@@ -241,16 +247,17 @@ class ProfileRepository:
             treated as different commands. Consider normalizing names before
             calling this method if case-insensitive behavior is desired.
         """
-        cur = self._conn.execute(
-            "SELECT id FROM commands WHERE name=?", (name,))
-        row = cur.fetchone()
-        if row:
-            return int(row[0])
-        now = datetime.now(timezone.utc).isoformat()
-        cur = self._conn.execute(
-            "INSERT INTO commands(name, created_at) VALUES(?,?)", (name, now))
-        self._conn.commit()
-        return int(cur.lastrowid)
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT id FROM commands WHERE name=?", (name,))
+            row = cur.fetchone()
+            if row:
+                return int(row[0])
+            now = datetime.now(timezone.utc).isoformat()
+            cur = self._conn.execute(
+                "INSERT INTO commands(name, created_at) VALUES(?,?)", (name, now))
+            self._conn.commit()
+            return int(cur.lastrowid)
 
     def list_commands(self) -> list[str]:
         """
@@ -349,13 +356,14 @@ class ProfileRepository:
             paths or establishing a consistent base directory structure to
             ensure recordings can be located later during training or inference.
         """
-        now = datetime.now(timezone.utc).isoformat()
-        cur = self._conn.execute(
-            "INSERT INTO recordings(command_id, path, sample_rate, channels, duration, created_at) VALUES (?,?,?,?,?,?)",
-            (command_id, path, sample_rate, channels, duration, now),
-        )
-        self._conn.commit()
-        return int(cur.lastrowid)
+        with self._lock:
+            now = datetime.now(timezone.utc).isoformat()
+            cur = self._conn.execute(
+                "INSERT INTO recordings(command_id, path, sample_rate, channels, duration, created_at) VALUES (?,?,?,?,?,?)",
+                (command_id, path, sample_rate, channels, duration, now),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
 
     def list_recordings(self, command_id: int) -> list[str]:
         """
@@ -460,13 +468,14 @@ class ProfileRepository:
             - Feature vectors are serialized as binary data for efficient storage
             - All vectors are normalized to float64 for numerical consistency
         """
-        now = datetime.now(timezone.utc).isoformat()
-        blob = vector.astype(np.float64).tobytes(order="C")
-        self._conn.execute(
-            "INSERT OR REPLACE INTO profiles(command_id, num_parts, vector, created_at) VALUES (?,?,?,?)",
-            (command_id, num_parts, blob, now),
-        )
-        self._conn.commit()
+        with self._lock:
+            now = datetime.now(timezone.utc).isoformat()
+            blob = vector.astype(np.float64).tobytes(order="C")
+            self._conn.execute(
+                "INSERT OR REPLACE INTO profiles(command_id, num_parts, vector, created_at) VALUES (?,?,?,?)",
+                (command_id, num_parts, blob, now),
+            )
+            self._conn.commit()
 
     def load_profiles(self, num_parts: int) -> dict[str, np.ndarray]:
         """

@@ -233,21 +233,37 @@ class ChunkRecorderThread(threading.Thread):
         target_blocks = max(1, total_frames // block)
 
         buf: list[np.ndarray] = []
+        self._block_count = 0
+
+        def audio_callback(indata, frames, time, status):
+            if status:
+                print(f"Audio callback status: {status}")
+
+            if self._stop.is_set() or self._block_count >= target_blocks:
+                raise sd.CallbackStop()
+
+            # Process audio data
+            x = indata[:, 0] if indata.ndim > 1 else indata.flatten()
+            x = np.clip(x, -1.0, 1.0)
+
+            # Calculate RMS
+            rms = float(np.sqrt((x.astype(np.float64) ** 2).mean() + 1e-12))
+
+            # Update progress
+            self._block_count += 1
+            progress = self._block_count / target_blocks
+            self.on_progress(rms, progress)
+
+            # Store audio data
+            buf.append((x * 32767.0).astype(np.int16))
 
         try:
             with sd.InputStream(samplerate=rate, channels=ch, dtype="float32",
-                                device=self.device_index, blocksize=block):
-                for i in range(target_blocks):
-                    if self._stop.is_set():
-                        break
-                    frames, _ = sd.read(
-                        block, samplerate=rate, channels=ch, dtype="float32")
-                    x = frames if frames.ndim == 1 else frames[:, 0]
-                    x = np.clip(x, -1.0, 1.0)
-                    rms = float(
-                        np.sqrt((x.astype(np.float64) ** 2).mean() + 1e-12))
-                    self.on_progress(rms, (i + 1) / target_blocks)
-                    buf.append((x * 32767.0).astype(np.int16))
+                                device=self.device_index, blocksize=block,
+                                callback=audio_callback):
+                # Wait for recording to complete
+                while self._block_count < target_blocks and not self._stop.is_set():
+                    sd.sleep(50)  # Sleep 50ms
 
             if not buf:
                 self.on_done(False, None, RuntimeError("No se capturó audio"))
@@ -1127,3 +1143,7 @@ def main():
     app = VoiceCmdGUI()
     app.protocol("WM_DELETE_WINDOW", app.on_close)
     app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
