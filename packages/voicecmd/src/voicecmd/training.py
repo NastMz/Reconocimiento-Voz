@@ -34,8 +34,51 @@ Algorithm Details:
 
 from __future__ import annotations
 import numpy as np
+from pathlib import Path
 from .repository import ProfileRepository
 from .features import FeatureExtractor
+from .config import get_data_dir
+
+
+def resolve_recording_path(relative_path: str) -> Path:
+    """
+    Resolve a recording path to an absolute path.
+
+    This function handles both relative and absolute paths, ensuring that
+    recordings stored with relative paths can be found regardless of the
+    current working directory.
+
+    Args:
+        relative_path: Path as stored in the database (may be relative or absolute)
+
+    Returns:
+        Path: Absolute path to the recording file
+
+    Examples:
+        >>> # Relative path gets resolved to data directory
+        >>> path = resolve_recording_path("data/UP/UP_123.wav")
+        >>> print(path)
+        /home/user/.voicecmd/data/UP/UP_123.wav
+
+        >>> # Absolute path remains unchanged
+        >>> path = resolve_recording_path("/absolute/path/file.wav")
+        >>> print(path)
+        /absolute/path/file.wav
+    """
+    path = Path(relative_path)
+
+    # If already absolute, return as-is
+    if path.is_absolute():
+        return path
+
+    # For relative paths, check if they exist relative to current directory first
+    if path.exists():
+        return path.resolve()
+
+    # Otherwise, resolve relative to the standard data directory
+    data_dir = get_data_dir()
+    resolved_path = data_dir.parent / relative_path
+    return resolved_path.resolve()
 
 
 class Trainer:
@@ -223,7 +266,8 @@ class Trainer:
                 continue
 
             # Extract features from all recordings
-            seqs = [self.fe.from_wav(p) for p in paths]
+            resolved_paths = [resolve_recording_path(p) for p in paths]
+            seqs = [self.fe.from_wav(str(rp)) for rp in resolved_paths]
 
             # Stack feature vectors and compute centroid
             arr = np.stack(seqs, axis=0)

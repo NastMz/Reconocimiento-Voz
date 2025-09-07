@@ -60,7 +60,7 @@ from pathlib import Path
 from datetime import datetime
 import typer
 
-from .config import AudioConfig, FeatureConfig
+from .config import AudioConfig, FeatureConfig, get_database_path, get_data_dir
 from .audio import AudioDevices, AudioRecorder, WavWriter
 from .repository import ProfileRepository
 from .training import Trainer
@@ -70,8 +70,8 @@ from .recognition import Recognizer
 app = typer.Typer(help="VoiceCMD — CLI for voice command recognition system")
 
 # Configuration constants for file organization
-DATA_DIR = Path("data")  # Base directory for audio recordings
-DB_PATH = Path("voicecmd.db")  # SQLite database for metadata and profiles
+DATA_DIR = get_data_dir()  # Base directory for audio recordings
+DB_PATH = get_database_path()  # SQLite database for metadata and profiles
 
 
 def _repo() -> ProfileRepository:

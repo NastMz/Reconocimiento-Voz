@@ -16,6 +16,86 @@ after creation, preventing accidental modification during runtime.
 
 from __future__ import annotations
 from dataclasses import dataclass
+from pathlib import Path
+import os
+
+
+def get_database_path() -> Path:
+    """
+    Get the standard path for the voicecmd database file.
+
+    Returns a consistent database path regardless of the current working directory.
+    The database is stored in:
+    1. VOICECMD_DB_PATH environment variable if set
+    2. ~/.voicecmd/voicecmd.db (user's home directory)
+    3. ./voicecmd.db (current directory) as fallback
+
+    Returns:
+        Path: Absolute path to the database file
+
+    Examples:
+        >>> db_path = get_database_path()
+        >>> print(db_path)
+        /home/user/.voicecmd/voicecmd.db
+
+        >>> # Using environment variable
+        >>> os.environ['VOICECMD_DB_PATH'] = '/custom/path/voice.db'
+        >>> db_path = get_database_path()
+        >>> print(db_path)
+        /custom/path/voice.db
+    """
+    # Check if custom path is set via environment variable
+    env_path = os.environ.get('VOICECMD_DB_PATH')
+    if env_path:
+        return Path(env_path).resolve()
+
+    # Use user's home directory as default
+    try:
+        home_dir = Path.home()
+        db_dir = home_dir / '.voicecmd'
+        return db_dir / 'voicecmd.db'
+    except (OSError, RuntimeError):
+        # Fallback to current directory if home directory is not accessible
+        return Path('voicecmd.db').resolve()
+
+
+def get_data_dir() -> Path:
+    """
+    Get the standard path for the voicecmd data directory.
+
+    Returns a consistent data directory path regardless of the current working directory.
+    The data directory is used to store audio recordings and is located in:
+    1. VOICECMD_DATA_DIR environment variable if set
+    2. ~/.voicecmd/data (user's home directory)
+    3. ./data (current directory) as fallback
+
+    Returns:
+        Path: Absolute path to the data directory
+
+    Examples:
+        >>> data_dir = get_data_dir()
+        >>> print(data_dir)
+        /home/user/.voicecmd/data
+
+        >>> # Using environment variable
+        >>> os.environ['VOICECMD_DATA_DIR'] = '/custom/data/path'
+        >>> data_dir = get_data_dir()
+        >>> print(data_dir)
+        /custom/data/path
+    """
+    # Check if custom path is set via environment variable
+    env_path = os.environ.get('VOICECMD_DATA_DIR')
+    if env_path:
+        return Path(env_path).resolve()
+
+    # Use user's home directory as default
+    try:
+        home_dir = Path.home()
+        data_dir = home_dir / '.voicecmd' / 'data'
+        return data_dir
+    except (OSError, RuntimeError):
+        # Fallback to current directory if home directory is not accessible
+        return Path('data').resolve()
 
 
 @dataclass(frozen=True)

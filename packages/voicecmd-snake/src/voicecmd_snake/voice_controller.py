@@ -48,12 +48,12 @@ The controller operates with multiple threads:
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 import queue
 
-from voicecmd.config import AudioConfig
+from voicecmd.config import AudioConfig, get_database_path
 from voicecmd.repository import ProfileRepository
 from voicecmd.recognition import Recognizer, LiveRecognizer
 
@@ -139,7 +139,7 @@ class VoiceController:
     """
 
     # Core configuration parameters
-    db_path: Path = Path("voicecmd.db")
+    db_path: Path = field(default_factory=get_database_path)
     """Path to the SQLite database containing trained voice command profiles."""
 
     num_parts: int = 100

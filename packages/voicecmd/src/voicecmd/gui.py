@@ -65,14 +65,14 @@ from tkinter import ttk, messagebox, filedialog
 import numpy as np
 import sounddevice as sd
 
-from .config import AudioConfig, FeatureConfig
+from .config import AudioConfig, FeatureConfig, get_database_path, get_data_dir
 from .audio import AudioDevices, AudioRecorder, WavWriter
 from .repository import ProfileRepository
 from .training import Trainer
 from .recognition import Recognizer, LiveRecognizer
 
-DB_PATH = Path("voicecmd.db")
-DATA_DIR = Path("data")
+DB_PATH = get_database_path()
+DATA_DIR = get_data_dir()
 
 
 # --------- Grabación “por bloques” con RMS/avance (sounddevice) ----------

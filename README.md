@@ -3,7 +3,15 @@
 Two packages in one repo:
 
 - **`voicecmd`** — reusable library + CLI for a simple voice command recognizer using **FFT → split into N parts → average energy per part**. Stores command profiles in **SQLite**. Includes a **GUI** to record, train, and test live.
-- **`voicecmd-snake`** — small Snake game demo to exercise the recognizer with **keyboard** or **live voice**.
+- ## Troubleshooting
+
+* **No mic device / permission denied**: grant microphone access to your terminal/IDE (macOS: System Settings → Privacy & Security → Microphone).
+* **GUI doesn't start on Linux**: install Tkinter — `sudo apt-get install -y python3-tk`.
+* **"Command not found" errors**: ensure all components use the same database by verifying paths with the verification command above.
+* **Different apps see different data**: check that `~/.voicecmd/` contains your expected data; old data might be in the working directory where you first trained.
+* **Too many false activations**: raise `--factor` (e.g., 3.5–4.5) or `--conf` (e.g., 0.65).
+* **High latency**: reduce `--window` (1.2–1.6 s) and/or `--hop` (0.2–0.25 s).
+* **Poor accuracy**: record more samples, keep distance to mic consistent, ensure `num_parts` in training and inference match.ecmd-snake`** — small Snake game demo to exercise the recognizer with **keyboard** or **live voice\*\*.
 
 > The goal is to provide a clean, OOP, reusable recognizer you can drop into any project (the Snake demo is just a harness).
 
@@ -16,7 +24,8 @@ Two packages in one repo:
 - CLI (`voicecmd`) to list devices, record samples, train profiles, and recognize files.
 - **GUI (`voicecmd-gui`)**: two tabs — **Dataset** (record & train) and **Live** (streaming recognition with noise calibration).
 - Live recognition: sliding window, noise calibration (RMS), confidence threshold.
-- SQLite persistence (`voicecmd.db`), no hardcoded averages.
+- **Consistent data location**: All components use standardized paths in `~/.voicecmd/` regardless of working directory.
+- SQLite persistence with intelligent path resolution, no hardcoded averages.
 - Snake demo (`snake-voice`) for quick end-to-end testing.
 
 ---
@@ -27,26 +36,32 @@ Two packages in one repo:
 
 voicecmd-monorepo/
 ├─ README.md
-├─ data/                          # default recordings folder (created as needed)
+├─ ~/.voicecmd/                   # user data directory (created automatically)
+│  ├─ voicecmd.db                 # SQLite database with profiles
+│  └─ data/                       # audio recordings
+│     ├─ UP/
+│     ├─ DOWN/
+│     ├─ LEFT/
+│     └─ RIGHT/
 └─ packages/
-├─ voicecmd/
-│  ├─ pyproject.toml
-│  └─ src/voicecmd/
-│     ├─ **init**.py
-│     ├─ config.py
-│     ├─ audio.py
-│     ├─ features.py
-│     ├─ repository.py
-│     ├─ training.py
-│     ├─ recognition.py
-│     ├─ cli.py              # `voicecmd` entrypoint
-│     └─ gui.py              # `voicecmd-gui` entrypoint (Tkinter)
-└─ voicecmd-snake/
-├─ pyproject.toml
-└─ src/voicecmd\_snake/
-├─ **init**.py
-├─ voice\_controller.py
-└─ game.py             # `snake-voice` entrypoint
+   ├─ voicecmd/
+   │  ├─ pyproject.toml
+   │  └─ src/voicecmd/
+   │     ├─ __init__.py
+   │     ├─ config.py            # path configuration functions
+   │     ├─ audio.py
+   │     ├─ features.py
+   │     ├─ repository.py
+   │     ├─ training.py
+   │     ├─ recognition.py
+   │     ├─ cli.py              # `voicecmd` entrypoint
+   │     └─ gui.py              # `voicecmd-gui` entrypoint (Tkinter)
+   └─ voicecmd-snake/
+      ├─ pyproject.toml
+      └─ src/voicecmd_snake/
+         ├─ __init__.py
+         ├─ voice_controller.py
+         └─ game.py             # `snake-voice` entrypoint
 
 ```
 
@@ -112,6 +127,41 @@ pip install -e packages/voicecmd -e packages/voicecmd-snake
 
 ---
 
+## Data Location & Portability
+
+VoiceCMD uses standardized paths to ensure all components (CLI, GUI, Snake) access the same data regardless of your current working directory:
+
+- **Database**: `~/.voicecmd/voicecmd.db` (user's home directory)
+- **Audio data**: `~/.voicecmd/data/`
+
+This means you can:
+- Run `voicecmd`, `voicecmd-gui`, or `snake-voice` from any directory
+- Train in one location and use recognition anywhere
+- Share trained models between applications seamlessly
+
+**Environment variable overrides** (optional):
+```bash
+export VOICECMD_DB_PATH="/custom/path/to/voice.db"
+export VOICECMD_DATA_DIR="/custom/data/directory"
+```
+
+**Path verification**:
+```bash
+python -c "from voicecmd.config import get_database_path, get_data_dir; print(f'DB: {get_database_path()}'); print(f'Data: {get_data_dir()}')"
+```
+
+**Migrating existing data**:
+If you have existing `voicecmd.db` or `data/` from previous versions, copy them to the new location:
+```bash
+# Copy database
+cp voicecmd.db ~/.voicecmd/
+
+# Copy audio data
+cp -r data ~/.voicecmd/
+```
+
+---
+
 ## Train your voice profiles (CLI)
 
 List input devices:
@@ -150,8 +200,14 @@ voicecmd recognize path/to/file.wav
 
 **Defaults**
 
-* Recordings saved under `data/<COMMAND>/...`
-* Profiles saved in `voicecmd.db` (in the current working directory)
+* Recordings saved under `~/.voicecmd/data/<COMMAND>/...`
+* Profiles saved in `~/.voicecmd/voicecmd.db`
+* Works from any directory (consistent paths)
+
+**Custom locations** (optional environment variables):
+
+* Set `VOICECMD_DB_PATH` to use a custom database location
+* Set `VOICECMD_DATA_DIR` to use a custom data directory
 
 ---
 
@@ -233,11 +289,11 @@ Controls:
 ## Use the library in your own code
 
 ```python
-from pathlib import Path
+from voicecmd.config import get_database_path
 from voicecmd.repository import ProfileRepository
 from voicecmd.recognition import Recognizer
 
-repo = ProfileRepository(Path("voicecmd.db"))
+repo = ProfileRepository(get_database_path())
 rec = Recognizer(repo, num_parts=100)
 cmd, conf = rec.recognize_wav("some_clip.wav")
 print(cmd, conf)
