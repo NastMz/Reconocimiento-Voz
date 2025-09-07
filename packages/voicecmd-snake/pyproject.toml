@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicecmd-snake"
+version = "0.1.0"
+description = "Demo Snake to test voicecmd (FFT band-energies voice recognizer)"
+requires-python = ">=3.10"
+dependencies = [
+  "pygame>=2.5.0",
+  "voicecmd>=0.2.0",   # depende del paquete hermano
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+snake-voice = "voicecmd_snake.game:main"
