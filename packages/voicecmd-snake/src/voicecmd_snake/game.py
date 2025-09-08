@@ -174,7 +174,7 @@ class GameConfig:
     voice_conf_threshold: float = 0.55
     """Minimum confidence score (0.0-1.0) required to accept voice commands."""
 
-    voice_cooldown_ms: int = 180
+    voice_cooldown_ms: int = 400
     """Minimum milliseconds between voice-triggered direction changes to prevent input flooding."""
 
 

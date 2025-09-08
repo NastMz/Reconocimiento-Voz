@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 import queue
+import time
 
 from voicecmd.config import AudioConfig, get_database_path
 from voicecmd.repository import ProfileRepository
@@ -216,6 +217,11 @@ class VoiceController:
         # Connect prediction callback for command filtering and queuing
         self.live.on_pred = self._on_pred
 
+        # Add debouncing variables
+        self._last_command = None
+        self._last_command_time = 0
+        self._command_count = 0
+
     def _on_pred(self, name: str, conf: float):
         """
         Handle recognition predictions from the live recognizer.
@@ -250,13 +256,29 @@ class VoiceController:
             - Keep processing minimal to avoid audio glitches
             - Complex logic should be moved to the game thread
         """
-        if name and conf >= self.conf_threshold and name in {"UP", "DOWN", "LEFT", "RIGHT"}:
-            try:
-                self._queue.put_nowait(name)
-            except queue.Full:
-                # Silently drop commands if queue is full to prevent blocking
-                # This prevents memory issues if commands aren't being consumed
-                pass
+        print(f"Predicted: {name} (conf={conf:.2f})")  # Debug output
+
+        if not (name and conf >= self.conf_threshold and name in {"UP", "DOWN", "LEFT", "RIGHT"}):
+            return
+
+        current_time = time.time()
+
+        # Debouncing logic: only send command if it's different from last one
+        # or enough time has passed since the same command
+        if name == self._last_command:
+            # Same command - check if enough time has passed
+            if current_time - self._last_command_time < 0.5:  # 500ms debounce
+                return
+
+        # Send the command
+        try:
+            self._queue.put_nowait(name)
+            self._last_command = name
+            self._last_command_time = current_time
+        except queue.Full:
+            # Silently drop commands if queue is full to prevent blocking
+            # This prevents memory issues if commands aren't being consumed
+            pass
 
     def start(self):
         """
