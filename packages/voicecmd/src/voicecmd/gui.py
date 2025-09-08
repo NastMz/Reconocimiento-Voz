@@ -8,11 +8,13 @@ voice command recognition system. The GUI enables users to:
 2. Train machine learning profiles for voice recognition
 3. Test voice recognition on recorded WAV files  
 4. Perform real-time voice command recognition
-5. Manage voice command profiles and recordings
+5. Evaluate model performance on directories of audio files
+6. Manage voice command profiles and recordings
 
-The application features a tabbed interface with two main sections:
+The application features a tabbed interface with three main sections:
 - Dataset Tab: For recording training samples and managing voice profiles
 - Live Recognition Tab: For real-time voice command recognition
+- Evaluation Tab: For batch testing and accuracy measurement
 
 Architecture:
 - Built using tkinter for cross-platform GUI compatibility
@@ -20,13 +22,15 @@ Architecture:
 - Integration with sounddevice for professional audio I/O
 - SQLite database backend for profile and recording management
 - Real-time audio processing with configurable parameters
+- Batch evaluation with progress tracking and detailed reporting
 
 Key Features:
 - Visual RMS meters for audio level monitoring
-- Progress bars for recording and training operations
+- Progress bars for recording, training, and evaluation operations
 - Configurable audio parameters (sample rate, duration, etc.)
 - Device selection for multiple microphone support
 - Real-time confidence scoring for voice recognition
+- Batch evaluation with accuracy statistics and per-file results
 - Automatic file organization and metadata management
 
 Dependencies:
@@ -281,8 +285,9 @@ class VoiceCmdGUI(tk.Tk):
     Main GUI application for VoiceCMD voice command system.
 
     This class provides a comprehensive graphical interface for voice command
-    training and recognition. Built on tkinter, it offers a tabbed interface
-    with separate sections for dataset management and live recognition.
+    training, recognition, and evaluation. Built on tkinter, it offers a tabbed 
+    interface with separate sections for dataset management, live recognition,
+    and batch evaluation.
 
     The application integrates all VoiceCMD components into a user-friendly
     interface, allowing users to:
@@ -290,22 +295,25 @@ class VoiceCmdGUI(tk.Tk):
     - Train machine learning profiles for recognition
     - Test recognition on audio files
     - Perform real-time voice command recognition
+    - Evaluate model performance on directories of audio files
     - Manage audio devices and configuration parameters
 
     GUI Architecture:
         - Tab 1 (Dataset): Recording, training, and file management
         - Tab 2 (Live): Real-time voice recognition with configuration
+        - Tab 3 (Evaluation): Batch testing and accuracy measurement
         - Threaded operations for responsive UI during audio processing
         - Real-time visual feedback with progress bars and RMS meters
         - Automatic resource management and cleanup
 
     Key Features:
         Visual Components:
-        - Progress bars for recording and training operations
+        - Progress bars for recording, training, and evaluation operations
         - RMS meters for real-time audio level monitoring
         - Device selection dropdowns for microphone management
         - Configuration controls for audio parameters
         - Status displays for operation feedback
+        - Results display with per-file accuracy details
 
         Audio Management:
         - Multi-device audio input support
@@ -325,10 +333,17 @@ class VoiceCmdGUI(tk.Tk):
         - Confidence scoring and display
         - Automatic calibration and noise handling
 
+        Batch Evaluation:
+        - Directory-based accuracy testing
+        - Configurable file patterns and recursive search
+        - Per-file results with OK/ERR status
+        - Overall accuracy statistics and reporting
+
     State Management:
         The GUI maintains extensive state through tkinter variables:
         - Recording state: command, device, duration, progress
         - Live recognition state: parameters, predictions, confidence
+        - Evaluation state: directory, label, progress, results
         - Visual feedback: RMS levels, status messages, progress
 
     Threading Model:
@@ -402,6 +417,17 @@ class VoiceCmdGUI(tk.Tk):
         self.live_calib_var = tk.DoubleVar(value=0.8)
         self.live_thread: LiveRecognizer | None = None
 
+        # Estado evaluación
+        self.eval_dir_var = tk.StringVar(value="")
+        self.eval_label_var = tk.StringVar(value="")
+        self.eval_glob_var = tk.StringVar(value="*.wav")
+        self.eval_recursive_var = tk.BooleanVar(value=False)
+        self.eval_status_var = tk.StringVar(value="Listo para evaluar.")
+        self.eval_results_var = tk.StringVar(value="")
+        self.eval_accuracy_var = tk.StringVar(value="")
+        self.eval_progress_var = tk.DoubleVar(value=0.0)
+        self.eval_running = False
+
         # Dispositivos
         self.devices = AudioDevices.list_input()
 
@@ -431,11 +457,14 @@ class VoiceCmdGUI(tk.Tk):
         nb.pack(fill="both", expand=True, padx=10, pady=10)
         self.tab_dataset = ttk.Frame(nb)
         self.tab_live = ttk.Frame(nb)
+        self.tab_eval = ttk.Frame(nb)
         nb.add(self.tab_dataset, text="Dataset (Grabar/Entrenar)")
         nb.add(self.tab_live, text="Reconocimiento en vivo")
+        nb.add(self.tab_eval, text="Evaluación")
 
         self._build_dataset_tab(self.tab_dataset)
         self._build_live_tab(self.tab_live)
+        self._build_eval_tab(self.tab_eval)
 
     def _build_dataset_tab(self, parent):
         """
@@ -650,6 +679,144 @@ class VoiceCmdGUI(tk.Tk):
         self.live_status = ttk.Label(
             parent, textvariable=self.live_status_var, anchor="w", relief="sunken")
         self.live_status.pack(side="bottom", fill="x")
+
+    def _build_eval_tab(self, parent):
+        """
+        Build the evaluation tab interface.
+
+        Creates the interface for batch evaluation of voice command recognition
+        accuracy on directories of audio files. This tab provides functionality
+        to test model performance and generate accuracy statistics.
+
+        UI Components:
+            Row 1: Directory and label configuration
+            - Directory path input with browse button
+            - Expected command label input
+            - File pattern input (glob pattern)
+            - Recursive search checkbox
+
+            Row 2: Control buttons
+            - Start evaluation button
+            - Stop evaluation button (during running evaluation)
+
+            Row 3: Progress feedback
+            - Progress bar showing evaluation progress
+            - Current file being processed
+
+            Row 4: Results display
+            - Scrollable text area with detailed results per file
+            - Overall accuracy summary
+
+            Status bar: Operation status and feedback
+
+        Features:
+            - Browse button for easy directory selection
+            - Support for custom file patterns (*.wav, test_*.wav, etc.)
+            - Recursive directory search option
+            - Real-time progress feedback during evaluation
+            - Detailed per-file results with OK/ERR status
+            - Overall accuracy statistics
+
+        Args:
+            parent: Parent tkinter widget (tab frame)
+        """
+        pad = {"padx": 10, "pady": 10}
+        frm = ttk.Frame(parent)
+        frm.pack(fill="both", expand=True, **pad)
+
+        # Configuración de evaluación
+        config_frame = ttk.LabelFrame(frm, text="Configuración de Evaluación")
+        config_frame.pack(fill="x", **pad)
+
+        # Row 1: Directory and label
+        row1 = ttk.Frame(config_frame)
+        row1.pack(fill="x", padx=5, pady=5)
+
+        ttk.Label(row1, text="Directorio:").grid(
+            row=0, column=0, sticky="w", padx=(0, 5))
+        self.eval_dir_entry = ttk.Entry(
+            row1, textvariable=self.eval_dir_var, width=40)
+        self.eval_dir_entry.grid(row=0, column=1, sticky="ew", padx=(0, 5))
+        ttk.Button(row1, text="Examinar", command=self._browse_eval_dir).grid(
+            row=0, column=2, padx=(0, 5))
+
+        ttk.Label(row1, text="Etiqueta esperada:").grid(
+            row=1, column=0, sticky="w", padx=(0, 5), pady=(5, 0))
+        ttk.Entry(row1, textvariable=self.eval_label_var, width=20).grid(
+            row=1, column=1, sticky="w", pady=(5, 0))
+
+        row1.columnconfigure(1, weight=1)
+
+        # Row 2: Pattern and options
+        row2 = ttk.Frame(config_frame)
+        row2.pack(fill="x", padx=5, pady=5)
+
+        ttk.Label(row2, text="Patrón de archivo:").grid(
+            row=0, column=0, sticky="w", padx=(0, 5))
+        ttk.Entry(row2, textvariable=self.eval_glob_var, width=15).grid(
+            row=0, column=1, sticky="w", padx=(0, 10))
+
+        ttk.Checkbutton(row2, text="Búsqueda recursiva",
+                        variable=self.eval_recursive_var).grid(row=0, column=2, sticky="w")
+
+        # Control buttons
+        button_frame = ttk.Frame(frm)
+        button_frame.pack(fill="x", **pad)
+
+        self.eval_start_btn = ttk.Button(button_frame, text="Iniciar Evaluación",
+                                         command=self._start_evaluation)
+        self.eval_start_btn.pack(side="left", padx=(0, 10))
+
+        self.eval_stop_btn = ttk.Button(button_frame, text="Detener",
+                                        command=self._stop_evaluation, state="disabled")
+        self.eval_stop_btn.pack(side="left")
+
+        # Progress
+        progress_frame = ttk.LabelFrame(frm, text="Progreso")
+        progress_frame.pack(fill="x", **pad)
+
+        self.eval_progress_bar = ttk.Progressbar(progress_frame, variable=self.eval_progress_var,
+                                                 maximum=100, length=400)
+        self.eval_progress_bar.pack(fill="x", padx=5, pady=5)
+
+        # Results
+        results_frame = ttk.LabelFrame(frm, text="Resultados")
+        results_frame.pack(fill="both", expand=True, **pad)
+
+        # Accuracy summary
+        accuracy_frame = ttk.Frame(results_frame)
+        accuracy_frame.pack(fill="x", padx=5, pady=(5, 0))
+
+        ttk.Label(accuracy_frame, text="Precisión:").pack(side="left")
+        accuracy_label = ttk.Label(accuracy_frame, textvariable=self.eval_accuracy_var,
+                                   font=("TkDefaultFont", 10, "bold"))
+        accuracy_label.pack(side="left", padx=(5, 0))
+
+        # Results text area
+        text_frame = ttk.Frame(results_frame)
+        text_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        self.eval_results_text = tk.Text(text_frame, height=15, wrap="none",
+                                         font=("Consolas", 9))
+        eval_scrollbar_v = ttk.Scrollbar(text_frame, orient="vertical",
+                                         command=self.eval_results_text.yview)
+        eval_scrollbar_h = ttk.Scrollbar(text_frame, orient="horizontal",
+                                         command=self.eval_results_text.xview)
+
+        self.eval_results_text.configure(yscrollcommand=eval_scrollbar_v.set,
+                                         xscrollcommand=eval_scrollbar_h.set)
+
+        self.eval_results_text.grid(row=0, column=0, sticky="nsew")
+        eval_scrollbar_v.grid(row=0, column=1, sticky="ns")
+        eval_scrollbar_h.grid(row=1, column=0, sticky="ew")
+
+        text_frame.grid_rowconfigure(0, weight=1)
+        text_frame.grid_columnconfigure(0, weight=1)
+
+        # Status bar
+        self.eval_status = ttk.Label(parent, textvariable=self.eval_status_var,
+                                     anchor="w", relief="sunken")
+        self.eval_status.pack(side="bottom", fill="x")
 
     # -------------------- Helpers --------------------
     def _load_commands(self):
@@ -1090,6 +1257,147 @@ class VoiceCmdGUI(tk.Tk):
         self._live_stop()
         self.repo.close()
         self.destroy()
+
+    # -------------------- Evaluation Methods --------------------
+
+    def _browse_eval_dir(self):
+        """Browse for evaluation directory."""
+        directory = filedialog.askdirectory(
+            title="Seleccionar directorio para evaluación"
+        )
+        if directory:
+            self.eval_dir_var.set(directory)
+
+    def _start_evaluation(self):
+        """Start batch evaluation process."""
+        if self.eval_running:
+            return
+
+        # Validate inputs
+        dir_path = self.eval_dir_var.get().strip()
+        if not dir_path:
+            messagebox.showerror("Error", "Seleccione un directorio.")
+            return
+
+        label = self.eval_label_var.get().strip()
+        if not label:
+            messagebox.showerror("Error", "Ingrese la etiqueta esperada.")
+            return
+
+        dir_path_obj = Path(dir_path)
+        if not dir_path_obj.exists():
+            messagebox.showerror("Error", "El directorio no existe.")
+            return
+
+        # Start evaluation in separate thread
+        self.eval_running = True
+        self.eval_start_btn.config(state="disabled")
+        self.eval_stop_btn.config(state="normal")
+        self.eval_status_var.set("Iniciando evaluación...")
+        self.eval_results_text.delete(1.0, tk.END)
+        self.eval_accuracy_var.set("")
+        self.eval_progress_var.set(0)
+
+        # Run evaluation in thread to avoid blocking GUI
+        eval_thread = threading.Thread(
+            target=self._run_evaluation, daemon=True)
+        eval_thread.start()
+
+    def _run_evaluation(self):
+        """Run evaluation process in background thread."""
+        try:
+            dir_path = Path(self.eval_dir_var.get().strip())
+            label = self.eval_label_var.get().strip().upper()
+            glob_pattern = self.eval_glob_var.get().strip()
+            recursive = self.eval_recursive_var.get()
+
+            # Create recognizer
+            recog = Recognizer(self.repo, self.num_parts)
+
+            # Find files
+            if recursive:
+                files = list(dir_path.rglob(glob_pattern))
+            else:
+                files = list(dir_path.glob(glob_pattern))
+
+            files = [f for f in files if f.is_file()]
+
+            if not files:
+                self.after(0, lambda: self._update_eval_status(
+                    "No se encontraron archivos."))
+                self.after(0, self._evaluation_finished)
+                return
+
+            total = len(files)
+            correct = 0
+
+            # Process files
+            for i, file_path in enumerate(sorted(files)):
+                if not self.eval_running:  # Check if stopped
+                    break
+
+                try:
+                    # Update progress
+                    progress = (i / total) * 100
+                    self.after(
+                        0, lambda p=progress: self.eval_progress_var.set(p))
+                    self.after(0, lambda f=file_path.name: self._update_eval_status(
+                        f"Procesando: {f}"))
+
+                    # Recognize file
+                    pred, conf = recog.recognize_wav(str(file_path))
+                    hit = (pred or "").upper() == label
+                    if hit:
+                        correct += 1
+
+                    # Update results
+                    status = "OK " if hit else "ERR"
+                    result_line = f"{status} {file_path.name:40s} -> {pred} (conf={conf:.2f})\n"
+                    self.after(
+                        0, lambda line=result_line: self._append_eval_result(line))
+
+                except Exception as e:
+                    error_line = f"ERR {file_path.name:40s} -> ERROR: {str(e)}\n"
+                    self.after(
+                        0, lambda line=error_line: self._append_eval_result(line))
+
+            # Final results
+            if self.eval_running:
+                accuracy = correct / total if total > 0 else 0.0
+                summary = f"\nPrecisión {label}: {correct}/{total} = {accuracy:.2%}"
+                self.after(0, lambda: self._append_eval_result(summary))
+                self.after(0, lambda: self.eval_accuracy_var.set(
+                    f"{correct}/{total} = {accuracy:.2%}"))
+                self.after(0, lambda: self.eval_progress_var.set(100))
+                self.after(0, lambda: self._update_eval_status(
+                    "Evaluación completada."))
+
+        except Exception as e:
+            error_msg = f"Error durante la evaluación: {str(e)}"
+            self.after(0, lambda: self._update_eval_status(error_msg))
+            self.after(0, lambda: messagebox.showerror("Error", error_msg))
+        finally:
+            self.after(0, self._evaluation_finished)
+
+    def _stop_evaluation(self):
+        """Stop current evaluation process."""
+        self.eval_running = False
+        self._update_eval_status("Deteniendo evaluación...")
+
+    def _evaluation_finished(self):
+        """Reset UI after evaluation completion."""
+        self.eval_running = False
+        self.eval_start_btn.config(state="normal")
+        self.eval_stop_btn.config(state="disabled")
+
+    def _update_eval_status(self, message):
+        """Update evaluation status message."""
+        self.eval_status_var.set(message)
+
+    def _append_eval_result(self, text):
+        """Append text to evaluation results."""
+        self.eval_results_text.insert(tk.END, text)
+        self.eval_results_text.see(tk.END)
 
 
 def main():

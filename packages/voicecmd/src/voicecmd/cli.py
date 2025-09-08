@@ -388,6 +388,91 @@ def eval_dir(
 ):
     """
     Evaluate recognition accuracy on a directory of WAV files.
+
+    Performs batch recognition testing on multiple audio files to measure
+    system accuracy for a specific voice command. This function is essential
+    for validating model performance, testing generalization, and quantifying
+    recognition reliability across different audio samples.
+
+    Args:
+        dir: Directory path containing WAV files to evaluate
+        label: Expected command label for all files in the directory (case-insensitive)
+        glob: File pattern for matching audio files (default: "*.wav")
+        recursive: Whether to search subdirectories recursively (default: False)
+        num_parts: Number of frequency bands for feature extraction (default: 100)
+        db: Path to database file containing trained profiles (default: system database)
+
+    Evaluation Process:
+        1. Loads trained recognition profiles from database
+        2. Finds all matching audio files in the specified directory
+        3. Runs recognition on each file individually
+        4. Compares predictions against expected label
+        5. Calculates and reports overall accuracy statistics
+
+    Output Format:
+        For each file: "[OK/ERR] filename -> PREDICTION (conf=X.XX)"
+        Final summary: "Accuracy LABEL: correct/total = XX.XX%"
+
+    Examples:
+        # Evaluate accuracy on HELLO command samples
+        $ voicecmd eval-dir data/HELLO HELLO
+        OK  HELLO_20231015_143022.wav             -> HELLO (conf=0.85)
+        OK  HELLO_20231015_143035.wav             -> HELLO (conf=0.92)
+        ERR HELLO_20231015_143048.wav             -> STOP (conf=0.67)
+
+        Accuracy HELLO: 2/3 = 66.67%
+
+        # Recursive evaluation with custom pattern
+        $ voicecmd eval-dir test_data UP --glob "test_*.wav" --recursive
+        OK  test_up_001.wav                       -> UP (conf=0.88)
+        OK  test_up_002.wav                       -> UP (conf=0.91)
+
+        Accuracy UP: 2/2 = 100.00%
+
+        # High-resolution evaluation
+        $ voicecmd eval-dir validation/DOWN DOWN --num-parts 200
+        OK  down_sample1.wav                      -> DOWN (conf=0.94)
+        ERR down_sample2.wav                      -> LEFT (conf=0.72)
+
+        Accuracy DOWN: 1/2 = 50.00%
+
+    Use Cases:
+        - Model validation after training
+        - Performance testing on held-out test sets
+        - Comparing accuracy across different feature configurations
+        - Quality assurance for production deployment
+        - A/B testing between different model versions
+
+    Best Practices:
+        - Use separate test data not used during training
+        - Test with various audio conditions and speakers
+        - Evaluate each command class separately
+        - Record accuracy metrics for performance tracking
+        - Use consistent num_parts with training configuration
+
+    Requirements:
+        - Directory must contain at least one matching audio file
+        - Trained profiles must exist for the specified num_parts
+        - All audio files should represent the same command (label)
+        - Database must be accessible and contain recognition profiles
+
+    Error Conditions:
+        - No files found: Exits with code 2
+        - No trained profiles: Shows "No trained profiles available"
+        - Database access issues: Connection errors
+
+    Technical Details:
+        - Uses same feature extraction pipeline as training and recognition
+        - Case-insensitive label comparison for flexibility
+        - Confidence scores help identify borderline cases
+        - File processing in sorted order for consistent results
+        - Memory-efficient processing (one file at a time)
+
+    Integration:
+        - Use in automated testing pipelines
+        - Combine with different num_parts values for comparison
+        - Process multiple command directories for full system evaluation
+        - Generate performance reports for model assessment
     """
     r = ProfileRepository(db)
     try:

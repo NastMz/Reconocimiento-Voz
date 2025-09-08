@@ -218,16 +218,22 @@ class FeatureExtractor:
 
     def _fft_energy(self, x: np.ndarray) -> np.ndarray:
         """
-        Compute frequency band energies using FFT analysis.
+        Compute frequency band energies using FFT analysis with advanced preprocessing.
 
-        This private method performs the core feature extraction algorithm:
-        1. Applies Real FFT to convert time-domain signal to frequency domain
-        2. Pads the FFT result if necessary to ensure even division into bands
-        3. Splits the frequency spectrum into the specified number of bands
-        4. Computes the average energy (mean squared magnitude) for each band
+        This private method performs the core feature extraction algorithm with
+        optimized signal processing techniques:
+        1. Applies pre-emphasis filter to enhance high-frequency formants
+        2. Applies Hamming window to reduce spectral leakage
+        3. Converts time-domain signal to frequency domain using Real FFT
+        4. Pads the FFT result if necessary to ensure even division into bands
+        5. Splits the frequency spectrum into the specified number of bands
+        6. Computes log-energy (logarithmic energy) for each band for scale stability
 
-        The Real FFT is used instead of full FFT since audio signals are real-valued,
-        which provides computational efficiency and avoids redundant information.
+        The implementation includes advanced audio processing techniques that improve
+        feature quality for voice recognition:
+        - Pre-emphasis filter enhances initial formants and high-frequency content
+        - Hamming windowing reduces spectral leakage artifacts
+        - Log-energy computation provides better numerical stability and dynamic range
 
         Args:
             x (np.ndarray): Input audio signal as a 1D array of float64 values.
@@ -235,44 +241,50 @@ class FeatureExtractor:
                           calling this method.
 
         Returns:
-            np.ndarray: Energy values for each frequency band, shape (num_parts,).
-                       Each value represents the average squared magnitude of
-                       frequency components in that band. Higher values indicate
-                       more energy at those frequencies.
+            np.ndarray: Log-energy values for each frequency band, shape (num_parts,).
+                       Each value represents the logarithmic average energy of
+                       frequency components in that band. Values are computed using
+                       log1p for numerical stability and are always non-negative.
 
         Algorithm Details:
-            - Uses scipy.fft.rfft for efficient real-valued FFT computation
-            - Padding ensures the frequency spectrum can be evenly divided
-            - Energy is computed as mean(|FFT_coefficients|²) per band
-            - Results are returned as float64 for numerical precision
+            - Pre-emphasis: y[n] = x[n] - 0.97 * x[n-1] (enhances formants)
+            - Windowing: Hamming window applied to reduce spectral leakage
+            - FFT: scipy.fft.rfft for efficient real-valued FFT computation
+            - Padding: Ensures frequency spectrum can be evenly divided into bands
+            - Energy: log1p(mean(|FFT_coefficients|²)) per band for stability
+            - Results returned as float64 for numerical precision
 
         Examples:
             >>> # This is a private method, typically called internally
             >>> extractor = FeatureExtractor(num_parts=4)
             >>> audio = np.sin(2 * np.pi * 440 * np.linspace(0, 1, 1000))
-            >>> energies = extractor._fft_energy(audio)
-            >>> print(f"Energy distribution: {energies}")
-            >>> # Would show higher energy in the band containing 440 Hz
+            >>> log_energies = extractor._fft_energy(audio)
+            >>> print(f"Log-energy distribution: {log_energies}")
+            >>> # Would show higher log-energy in the band containing 440 Hz
 
         Note:
+            - Pre-emphasis enhances speech formants and improves recognition accuracy
+            - Hamming window reduces artifacts at signal boundaries
+            - Log-energy (log1p) provides better numerical stability than linear energy
             - The method assumes input is already preprocessed (mono, float64)
-            - Padding with zeros doesn't affect the energy computation significantly
-            - Energy values are always non-negative due to squared magnitude computation
+            - Log-energy values are always non-negative due to log1p computation
             - Higher sample rates will spread energy across more frequency bins
         """
-        # Apply Real FFT to convert to frequency domain
+        # Pre-emphasis filter (enhances initial formants)
+        x = np.asarray(x, dtype=np.float64)
+        if len(x) > 1:
+            x = np.concatenate([[x[0]], x[1:] - 0.97 * x[:-1]])
+        # Hamming window (reduces spectral leakage)
+        x = x * np.hamming(len(x))
         X = rfft(x)
-        n = len(X)
 
-        # Pad FFT result if needed to ensure even division into bands
+        n = len(X)
         r = (-n) % self.num_parts
         if r:
-            X = np.pad(X, (0, r), mode='constant', constant_values=0)
-
-        # Split frequency spectrum into equal-sized bands
+            X = np.pad(X, (0, r))
         parts = np.array_split(X, self.num_parts)
 
-        # Compute average energy (mean squared magnitude) for each band
-        energies = np.array([np.mean(np.abs(p) ** 2)
+        # Log-energy computation (stabilizes scale)
+        energies = np.array([np.log1p(np.mean(np.abs(p) ** 2))
                             for p in parts], dtype=np.float64)
         return energies
