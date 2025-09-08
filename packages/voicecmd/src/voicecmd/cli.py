@@ -375,3 +375,40 @@ def recognize(
             typer.echo(f"Prediction: {name} (conf={conf:.2f})")
     finally:
         r.close()
+
+
+@app.command("eval-dir")
+def eval_dir(
+    dir: Path,
+    label: str,
+    glob: str = "*.wav",
+    recursive: bool = False,
+    num_parts: int = 100,
+    db: Path = DB_PATH,
+):
+    """
+    Evaluate recognition accuracy on a directory of WAV files.
+    """
+    r = ProfileRepository(db)
+    try:
+        recog = Recognizer(r, num_parts)
+        it = dir.rglob(glob) if recursive else dir.glob(glob)
+        files = [p for p in it if p.is_file()]
+        if not files:
+            typer.echo("No files found.")
+            raise typer.Exit(code=2)
+
+        total = 0
+        ok = 0
+        for f in sorted(files):
+            pred, conf = recog.recognize_wav(str(f))
+            total += 1
+            hit = (pred or "").upper() == label.upper()
+            ok += 1 if hit else 0
+            typer.echo(
+                f"{'OK ' if hit else 'ERR'} {f.name:40s} -> {pred} (conf={conf:.2f})")
+
+        acc = ok / total if total else 0.0
+        typer.echo(f"\nAccuracy {label.upper()}: {ok}/{total} = {acc:.2%}")
+    finally:
+        r.close()
