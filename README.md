@@ -13,9 +13,11 @@ Two packages in one repo:
 
 - OOP library: `AudioRecorder`, `FeatureExtractor`, `ProfileRepository`, `Trainer`, `Recognizer`, `LiveRecognizer`.
 - Cross-platform capture via **sounddevice**/**soundfile** (no PyAudio).
-- CLI (`voicecmd`) to list devices, record samples, train profiles, and recognize files.
-- **GUI (`voicecmd-gui`)**: two tabs — **Dataset** (record & train) and **Live** (streaming recognition with noise calibration).
+- CLI (`voicecmd`) to list devices, record samples, train profiles, recognize files, and evaluate accuracy.
+- **GUI (`voicecmd-gui`)**: three tabs — **Dataset** (record & train), **Live** (streaming recognition with noise calibration), and **Evaluation** (batch testing and accuracy measurement).
 - Live recognition: sliding window, noise calibration (RMS), confidence threshold.
+- **Batch evaluation**: Test model accuracy on directories of audio files with detailed per-file results.
+- **Robust training**: Automatically handles missing or corrupted audio files without failing.
 - **Consistent data paths**: All components use `~/.voicecmd/` regardless of working directory.
 - SQLite persistence (`voicecmd.db`), no hardcoded averages.
 - Snake demo (`snake-voice`) for quick end-to-end testing.
@@ -169,7 +171,15 @@ Recognize a WAV file:
 voicecmd recognize path/to/file.wav
 ```
 
-**Defaults**
+Evaluate accuracy on a directory of files:
+
+```bash
+voicecmd eval-dir path/to/test/directory EXPECTED_LABEL
+voicecmd eval-dir data/UP UP --recursive         # test all UP samples
+voicecmd eval-dir validation DOWN --glob "*.wav" # custom pattern
+```
+
+### Defaults
 
 - Recordings saved under `~/.voicecmd/data/<COMMAND>/...`
 - Profiles saved in `~/.voicecmd/voicecmd.db`
@@ -207,6 +217,54 @@ voicecmd-gui
     - **Calibration (s)**: noise calibration time
 
   - Click **Start** to calibrate and begin predictions. The GUI shows **RMS**, last **Prediction** and **Confidence**.
+
+- **Evaluation**
+
+  - Browse to select a **Directory** containing test audio files.
+  - Enter the **Expected Label** for all files in that directory.
+  - Optionally modify the **File Pattern** (default: `*.wav`) or enable **Recursive Search**.
+  - Click **Start Evaluation** to test accuracy on all matching files.
+  - View real-time progress and detailed per-file results with overall accuracy statistics.
+
+---
+
+## Model Evaluation
+
+### CLI Evaluation
+
+Test model accuracy on directories of audio files:
+
+```bash
+# Evaluate all .wav files in a directory
+voicecmd eval-dir path/to/test/UP UP
+
+# Recursive search with custom pattern
+voicecmd eval-dir data/validation DOWN --glob "test_*.wav" --recursive
+
+# Output shows per-file results and overall accuracy
+# OK  file1.wav                     -> UP (conf=0.85)
+# ERR file2.wav                     -> DOWN (conf=0.67)
+#
+# Accuracy UP: 8/10 = 80.00%
+```
+
+### GUI Evaluation
+
+Use the **Evaluation** tab for interactive testing:
+
+1. **Browse** for directory containing test files
+2. Enter **Expected Label** (command name)
+3. Optionally modify **File Pattern** or enable **Recursive Search**
+4. Click **Start Evaluation** to begin batch testing
+5. Monitor **Progress** and view **Real-time Results**
+6. Review **Overall Accuracy** and **Per-file Details**
+
+Benefits:
+
+- Visual progress tracking
+- Detailed per-file results with confidence scores
+- Overall accuracy statistics
+- Easy directory browsing and pattern matching
 
 ---
 
@@ -276,6 +334,8 @@ For live streaming, use `LiveRecognizer` (see `voicecmd_snake/voice_controller.p
 - **No mic device / permission denied**: grant microphone access to your terminal/IDE (macOS: System Settings → Privacy & Security → Microphone).
 - **GUI doesn't start on Linux**: install Tkinter — `sudo apt-get install -y python3-tk`.
 - **Different apps see different data**: verify all components use `~/.voicecmd/` with the path verification command above.
+- **Training fails with missing files**: The system automatically skips missing or corrupted files and continues training with available recordings. Check the output for `[WARN]` messages about missing files.
+- **Poor evaluation accuracy**: Ensure test files match the expected command, record more training samples, and verify audio quality.
 - **Too many false activations**: raise `--factor` (e.g., 3.5–4.5) or `--conf` (e.g., 0.65).
 - **High latency**: reduce `--window` (1.2–1.6 s) and/or `--hop` (0.2–0.25 s).
 - **Poor accuracy**: record more samples, keep distance to mic consistent, ensure `num_parts` in training and inference match.

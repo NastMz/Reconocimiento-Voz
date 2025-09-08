@@ -183,18 +183,24 @@ class Trainer:
         Executes the complete training pipeline for all commands stored in
         the repository. For each command, this method:
         1. Retrieves all associated audio recordings
-        2. Extracts spectral features from each recording
-        3. Computes the centroid (mean) of all feature vectors
-        4. Stores the resulting profile for recognition use
+        2. Validates that audio files exist and are accessible
+        3. Extracts spectral features from each valid recording
+        4. Computes the centroid (mean) of all feature vectors
+        5. Stores the resulting profile for recognition use
 
         The method provides progress feedback and warnings for commands
-        without training data. Commands with no recordings are skipped
-        with a warning message.
+        without training data or missing files. Commands with no valid
+        recordings are skipped with a warning message. Missing or corrupted
+        audio files are ignored rather than causing training to fail.
+
+        Robust Error Handling:
+            - Missing audio files are skipped with warnings
+            - Corrupted files are ignored with error messages
+            - Training continues with remaining valid files
+            - Commands need at least one valid recording to create a profile
 
         Raises:
-            FileNotFoundError: If any referenced audio file doesn't exist
-            ValueError: If audio files are corrupted or incompatible
-            sqlite3.Error: If database operations fail
+            sqlite3.Error: If database operations fail (unrecoverable)
 
         Examples:
             >>> from pathlib import Path
@@ -203,15 +209,15 @@ class Trainer:
             >>> # Set up repository with some training data
             >>> repo = ProfileRepository(Path("training.db"))
             >>> 
-            >>> # Add commands and recordings (example setup)
+            >>> # Add commands and recordings (some files may be missing)
             >>> hello_id = repo.upsert_command("hello")
-            >>> repo.add_recording(hello_id, "/data/hello_001.wav", 16000, 1, 2.5)
-            >>> repo.add_recording(hello_id, "/data/hello_002.wav", 16000, 1, 2.3)
-            >>> repo.add_recording(hello_id, "/data/hello_003.wav", 16000, 1, 2.7)
+            >>> repo.add_recording(hello_id, "/data/hello_001.wav", 16000, 1, 2.5)  # exists
+            >>> repo.add_recording(hello_id, "/data/hello_002.wav", 16000, 1, 2.3)  # missing
+            >>> repo.add_recording(hello_id, "/data/hello_003.wav", 16000, 1, 2.7)  # exists
             >>> 
             >>> stop_id = repo.upsert_command("stop")
-            >>> repo.add_recording(stop_id, "/data/stop_001.wav", 16000, 1, 1.8)
-            >>> repo.add_recording(stop_id, "/data/stop_002.wav", 16000, 1, 2.1)
+            >>> repo.add_recording(stop_id, "/data/stop_001.wav", 16000, 1, 1.8)    # missing
+            >>> repo.add_recording(stop_id, "/data/stop_002.wav", 16000, 1, 2.1)    # missing
             >>> 
             >>> # Empty command (no recordings)
             >>> play_id = repo.upsert_command("play")
@@ -219,44 +225,49 @@ class Trainer:
             >>> # Train all commands
             >>> trainer = Trainer(repo, num_parts=100)
             >>> trainer.train_all()
-            [OK] Profile updated: hello (num_parts=100)
-            [OK] Profile updated: stop (num_parts=100)
+            [WARN] 1 missing files for hello: ['/data/hello_002.wav']
+            [OK] Profile updated: hello (num_parts=100, 2/3 recordings)
+            [WARN] 2 missing files for stop: ['/data/stop_001.wav', '/data/stop_002.wav']
+            [WARN] No valid recordings found for stop
             [WARN] No recordings for play
             >>> 
             >>> # Verify profiles were created
             >>> profiles = repo.load_profiles(num_parts=100)
             >>> print(f"Trained commands: {list(profiles.keys())}")
-            Trained commands: ['hello', 'stop']
+            Trained commands: ['hello']
 
         Training Process Details:
             1. **Command Iteration**: Processes commands in alphabetical order
-            2. **Feature Extraction**: Each audio file is converted to a feature vector
-            3. **Centroid Computation**: Mean of all vectors represents the command
-            4. **Profile Storage**: Centroids are stored with configuration metadata
+            2. **File Validation**: Checks existence before feature extraction
+            3. **Feature Extraction**: Each valid audio file is converted to a feature vector
+            4. **Error Recovery**: Missing/corrupted files are skipped with warnings
+            5. **Centroid Computation**: Mean of all valid vectors represents the command
+            6. **Profile Storage**: Centroids are stored with configuration metadata
 
         Mathematical Details:
-            For a command with n recordings and feature vectors [f₁, f₂, ..., fₙ]:
+            For a command with n valid recordings and feature vectors [f₁, f₂, ..., fₙ]:
 
             Centroid = (f₁ + f₂ + ... + fₙ) / n
 
             Where each fᵢ is a vector of length num_parts containing spectral energies.
 
         Performance Considerations:
-            - Training time scales linearly with number of recordings
+            - Training time scales linearly with number of valid recordings
+            - File validation adds minimal overhead compared to feature extraction
             - Memory usage depends on num_parts and number of simultaneous recordings
-            - File I/O is the primary bottleneck for large training sets
-            - Consider batch processing for very large datasets
+            - Missing files cause warnings but don't slow down processing
 
         Output Format:
-            - [OK] messages indicate successful profile creation
-            - [WARN] messages indicate commands without training data
+            - [OK] messages indicate successful profile creation with valid file count
+            - [WARN] messages indicate missing files, commands without data, or processing errors
             - Progress is reported for each command processed
 
         Note:
-            - Commands without recordings are skipped but remain in the database
+            - Commands without valid recordings are skipped but remain in the database
             - Existing profiles with matching (command_id, num_parts) are overwritten
-            - All audio files must be accessible at their stored paths
-            - Feature extraction errors will halt training for that command
+            - Missing files are reported but don't halt training
+            - At least one valid recording is required to create a profile
+            - Feature extraction errors are caught and reported as warnings
         """
         for name in self.repo.list_commands():
             cmd_id = self.repo.upsert_command(name)
@@ -265,9 +276,32 @@ class Trainer:
                 print(f"[WARN] No recordings for {name}")
                 continue
 
-            # Extract features from all recordings
+            # Extract features from all recordings, skipping missing files
             resolved_paths = [resolve_recording_path(p) for p in paths]
-            seqs = [self.fe.from_wav(str(rp)) for rp in resolved_paths]
+            seqs = []
+            missing_files = []
+
+            for i, (original_path, resolved_path) in enumerate(zip(paths, resolved_paths)):
+                try:
+                    if not resolved_path.exists():
+                        missing_files.append(original_path)
+                        continue
+
+                    features = self.fe.from_wav(str(resolved_path))
+                    seqs.append(features)
+                except Exception as e:
+                    print(f"[WARN] Failed to process {original_path}: {e}")
+                    continue
+
+            # Report missing files if any
+            if missing_files:
+                print(
+                    f"[WARN] {len(missing_files)} missing files for {name}: {missing_files[:3]}{'...' if len(missing_files) > 3 else ''}")
+
+            # Check if we have enough valid recordings
+            if not seqs:
+                print(f"[WARN] No valid recordings found for {name}")
+                continue
 
             # Stack feature vectors and compute centroid
             arr = np.stack(seqs, axis=0)
@@ -275,4 +309,5 @@ class Trainer:
 
             # Save the computed profile
             self.repo.save_profile(cmd_id, self.num_parts, centroid)
-            print(f"[OK] Profile updated: {name} (num_parts={self.num_parts})")
+            print(
+                f"[OK] Profile updated: {name} (num_parts={self.num_parts}, {len(seqs)}/{len(paths)} recordings)")
