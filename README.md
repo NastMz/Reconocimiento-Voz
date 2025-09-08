@@ -16,6 +16,7 @@ Two packages in one repo:
 - CLI (`voicecmd`) to list devices, record samples, train profiles, and recognize files.
 - **GUI (`voicecmd-gui`)**: two tabs — **Dataset** (record & train) and **Live** (streaming recognition with noise calibration).
 - Live recognition: sliding window, noise calibration (RMS), confidence threshold.
+- **Consistent data paths**: All components use `~/.voicecmd/` regardless of working directory.
 - SQLite persistence (`voicecmd.db`), no hardcoded averages.
 - Snake demo (`snake-voice`) for quick end-to-end testing.
 
@@ -23,31 +24,35 @@ Two packages in one repo:
 
 ## Repository layout
 
-```
-
+```text
 voicecmd-monorepo/
 ├─ README.md
-├─ data/                          # default recordings folder (created as needed)
+├─ ~/.voicecmd/                   # user data directory (created automatically)
+│  ├─ voicecmd.db                 # SQLite database with profiles
+│  └─ data/                       # audio recordings
+│     ├─ UP/
+│     ├─ DOWN/
+│     ├─ LEFT/
+│     └─ RIGHT/
 └─ packages/
-├─ voicecmd/
-│  ├─ pyproject.toml
-│  └─ src/voicecmd/
-│     ├─ **init**.py
-│     ├─ config.py
-│     ├─ audio.py
-│     ├─ features.py
-│     ├─ repository.py
-│     ├─ training.py
-│     ├─ recognition.py
-│     ├─ cli.py              # `voicecmd` entrypoint
-│     └─ gui.py              # `voicecmd-gui` entrypoint (Tkinter)
-└─ voicecmd-snake/
-├─ pyproject.toml
-└─ src/voicecmd\_snake/
-├─ **init**.py
-├─ voice\_controller.py
-└─ game.py             # `snake-voice` entrypoint
-
+   ├─ voicecmd/
+   │  ├─ pyproject.toml
+   │  └─ src/voicecmd/
+   │     ├─ __init__.py
+   │     ├─ config.py            # path configuration functions
+   │     ├─ audio.py
+   │     ├─ features.py
+   │     ├─ repository.py
+   │     ├─ training.py
+   │     ├─ recognition.py
+   │     ├─ cli.py              # `voicecmd` entrypoint
+   │     └─ gui.py              # `voicecmd-gui` entrypoint (Tkinter)
+   └─ voicecmd-snake/
+      ├─ pyproject.toml
+      └─ src/voicecmd_snake/
+         ├─ __init__.py
+         ├─ voice_controller.py
+         └─ game.py             # `snake-voice` entrypoint
 ```
 
 ---
@@ -57,21 +62,21 @@ voicecmd-monorepo/
 - **Python 3.10+**
 - Microphone available to the OS.
 - **Linux (audio libs)**:
+
   ```bash
   sudo apt-get update
   sudo apt-get install -y libportaudio2 libsndfile1
   ```
 
-* **Tkinter (GUI)**:
+- **Tkinter (GUI)**:
 
   - macOS / Windows (official Python): usually bundled.
   - Linux:
-
     ```bash
     sudo apt-get install -y python3-tk
     ```
 
-* **WSL**: audio input is unreliable; run on Windows/macOS/Linux natively.
+- **WSL**: audio input is unreliable; run on Windows/macOS/Linux natively.
 
 ---
 
@@ -108,6 +113,23 @@ pip install -e packages/voicecmd -e packages/voicecmd-snake
 > ```bash
 > pip install -e packages/voicecmd
 > ```
+
+---
+
+## Data Storage
+
+VoiceCMD uses standardized paths so all components (CLI, GUI, Snake) share the same data:
+
+- **Database**: `~/.voicecmd/voicecmd.db`
+- **Recordings**: `~/.voicecmd/data/`
+
+This allows you to run any command from any directory and access the same trained models.
+
+**Verify paths**:
+
+```bash
+python -c "from voicecmd.config import get_database_path, get_data_dir; print('DB:', get_database_path()); print('Data:', get_data_dir())"
+```
 
 ---
 
@@ -149,8 +171,9 @@ voicecmd recognize path/to/file.wav
 
 **Defaults**
 
-- Recordings saved under `data/<COMMAND>/...`
-- Profiles saved in `voicecmd.db` (in the current working directory)
+- Recordings saved under `~/.voicecmd/data/<COMMAND>/...`
+- Profiles saved in `~/.voicecmd/voicecmd.db`
+- Works from any directory
 
 ---
 
@@ -216,7 +239,7 @@ snake-voice --voice \
 Controls:
 
 - Keyboard: arrows / WASD
-- Voice: “UP”, “DOWN”, “LEFT”, “RIGHT” (match the commands you trained)
+- Voice: "UP", "DOWN", "LEFT", "RIGHT" (match the commands you trained)
 
 ---
 
@@ -233,11 +256,11 @@ Controls:
 ## Use the library in your own code
 
 ```python
-from pathlib import Path
+from voicecmd.config import get_database_path
 from voicecmd.repository import ProfileRepository
 from voicecmd.recognition import Recognizer
 
-repo = ProfileRepository(Path("voicecmd.db"))
+repo = ProfileRepository(get_database_path())
 rec = Recognizer(repo, num_parts=100)
 cmd, conf = rec.recognize_wav("some_clip.wav")
 print(cmd, conf)
@@ -251,7 +274,8 @@ For live streaming, use `LiveRecognizer` (see `voicecmd_snake/voice_controller.p
 ## Troubleshooting
 
 - **No mic device / permission denied**: grant microphone access to your terminal/IDE (macOS: System Settings → Privacy & Security → Microphone).
-- **GUI doesn’t start on Linux**: install Tkinter — `sudo apt-get install -y python3-tk`.
+- **GUI doesn't start on Linux**: install Tkinter — `sudo apt-get install -y python3-tk`.
+- **Different apps see different data**: verify all components use `~/.voicecmd/` with the path verification command above.
 - **Too many false activations**: raise `--factor` (e.g., 3.5–4.5) or `--conf` (e.g., 0.65).
 - **High latency**: reduce `--window` (1.2–1.6 s) and/or `--hop` (0.2–0.25 s).
 - **Poor accuracy**: record more samples, keep distance to mic consistent, ensure `num_parts` in training and inference match.
@@ -269,4 +293,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Audio I/O: [sounddevice](https://python-sounddevice.readthedocs.io/), [soundfile](https://pysoundfile.readthedocs.io/).
 - GUI: Tkinter (built-in with CPython on most platforms).
 - Demo: [pygame](https://www.pygame.org/).
-- Core idea preserved: FFT → band energies → averages per command.
